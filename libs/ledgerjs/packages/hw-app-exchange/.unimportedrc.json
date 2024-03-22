@@ -1,0 +1,8 @@
+{
+  "entry": [
+    "src/index.ts"
+  ],
+  "ignoreUnused": [
+    "protobufjs-cli"
+  ]
+}
