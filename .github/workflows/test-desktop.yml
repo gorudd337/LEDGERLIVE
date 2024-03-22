@@ -1,0 +1,231 @@
+name: "[Test] Desktop App"
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - release
+      - hotfix
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: "Ledger Live Desktop TypeCheck"
+    env:
+      NODE_OPTIONS: "--max-old-space-size=7168"
+      INSTRUMENT_BUILD: true
+      FORCE_COLOR: 3
+      # DEBUG: "pw:browser*"
+      # DEBUG_LOGS: 1
+      CI_OS: ubuntu-latest
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+      - uses: pnpm/action-setup@v2.1.0
+        with:
+          version: latest
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.7
+          bundler-cache: true
+      - name: Bump npm to latest
+        run: npm i -g npm@8.12.2
+      - name: TurboRepo local server
+        uses: felixmosh/turborepo-gh-artifacts@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          server-token: "yolo"
+      - name: Install dependencies
+        run: pnpm i --filter="ledger-live-desktop..." --filter="ledger-live" --frozen-lockfile --unsafe-perm
+      - name: Build dependencies
+        run: pnpm build:lld:deps --api="http://127.0.0.1:9080" --token="yolo" --team="foo"
+      - name: Run code checkers
+        run: pnpm desktop test:codecheck
+
+  test-desktop-app:
+    name: "Ledger Live Desktop Tests"
+    env:
+      NODE_OPTIONS: "--max-old-space-size=7168"
+      INSTRUMENT_BUILD: true
+      FORCE_COLOR: 3
+      CI_OS: ${{ matrix.os }}
+      # DEBUG: "pw:browser*"
+      # DEBUG_LOGS: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          # - macos-latest
+          - windows-latest
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: format os name
+        id: os
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          script: |
+            if ("${{ matrix.os }}" === "ubuntu-latest") {
+              return "linux"
+            } else if ("${{ matrix.os }}" === "macos-latest") {
+              return "macos"
+            } else if ("${{ matrix.os }}" === "windows-latest") {
+              return "windows"
+            }
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+      - uses: pnpm/action-setup@v2.1.0
+        with:
+          version: latest
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.7
+          bundler-cache: true
+      - name: Bump npm to latest
+        run: npm i -g npm@8.12.2
+      - name: TurboRepo local server
+        uses: felixmosh/turborepo-gh-artifacts@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          server-token: "yolo"
+      - name: Install dependencies
+        run: pnpm i --filter="ledger-live-desktop..." --filter="ledger-live" --frozen-lockfile --unsafe-perm
+      - name: Install playwright dependencies
+        run: npx @playwright/test install-deps
+      - name: Build dependencies
+        env:
+          GOGC: 75
+        run: |
+          pnpm build:lld:deps --api="http://127.0.0.1:9080" --token="yolo" --team="foo"
+          pnpm desktop build:testing
+      - name: Run unit tests [Linux]
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm desktop test:jest
+      - name: Run playwright tests [Linux => xvfb-run]
+        if: matrix.os == 'ubuntu-latest'
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm desktop test:playwright
+        shell: bash
+      - name: Run playwright tests
+        if: matrix.os != 'ubuntu-latest'
+        run: pnpm desktop test:playwright
+        shell: bash
+      - name: upload diffs to imgur
+        if: always() && !cancelled()
+        uses: ledgerhq/ledger-live/tools/actions/upload-images@develop
+        id: imgur
+        with:
+          path: apps/ledger-live-desktop/tests/artifacts/test-results
+          workspace: ${{ github.workspace }}
+          os: ${{ steps.os.outputs.result }}
+      - name: upload ci suggested screenshots
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v3
+        with:
+          name: images
+          path: images-${{steps.os.outputs.result}}.json
+      - name: Upload playwright test results [On Failure]
+        uses: actions/upload-artifact@v3
+        if: failure() && !cancelled()
+        with:
+          name: ${{ format('playwright-results-{0}', matrix.os) }}
+          path: |
+            apps/ledger-live-desktop/tests/artifacts/test-results
+            apps/ledger-live-desktop/tests/artifacts/html-report
+            apps/ledger-live-desktop/tests/artifacts/coverage
+            apps/ledger-live-desktop/tests/artifacts/videos
+
+  report:
+    needs: [test-desktop-app]
+    runs-on: ubuntu-latest
+    if: ${{ always()  && !cancelled() && github.event.pull_request != '' }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: check if comment already exists exists
+        uses: actions/github-script@v6
+        id: exists
+        with:
+          result-encoding: string
+          script: |
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const exists = comments.data.find(comment => comment.user.login === 'github-actions[bot]');
+
+            return exists?.id ?? 'false';
+      - name: download images artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: images
+      - name: parse images
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require("fs");
+
+            const files = ["images-linux", "images-windows"];
+
+            let result = {};
+            for (const file of files) {
+              try {
+                const raw = JSON.parse(fs.readFileSync("${{github.workspace}}/" + file + ".json"));
+                const key = file.replace("images-", "").replace("-latest", "").trim()
+                result[key] = raw;
+              } catch (err) {
+                console.log(err);
+              }
+            }
+
+            fs.writeFileSync("./images.json", JSON.stringify(result, null, 2));
+      - name: prepare comment with screenshots
+        id: comment
+        uses: ledgerhq/ledger-live/tools/actions/prepare-comment-screenshots@develop
+        with:
+          images: images.json
+      - name: edit comment
+        uses: actions/github-script@v6
+        if: ${{ steps.exists.outputs.result != 'false' }}
+        with:
+          script: |
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: ${{ steps.exists.outputs.result }},
+              body: `${{ steps.comment.outputs.body }}`
+            });
+      - name: create comment
+        if: ${{ steps.exists.outputs.result == 'false' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.number }} --body "${{ steps.comment.outputs.body }}"
