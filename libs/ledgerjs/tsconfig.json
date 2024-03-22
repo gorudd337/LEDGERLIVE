@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "downlevelIteration": true,
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "module": "commonjs",
+    "lib": ["DOM", "ES2017"],
+    "isolatedModules": false,
+    "target": "ES6"
+  }
+}
