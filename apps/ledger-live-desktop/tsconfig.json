@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "module": "es2020",
+    "jsx": "react",
+    "lib": ["es6", "dom"],
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "strict": true,
+    "target": "esnext",
+    "baseUrl": ".",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "rootDir": "."
+  },
+  "include": ["tests", "**/*.d.ts"],
+  "files": ["package.json", "release-notes.json"],
+  "exclude": [
+    "node_modules",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js",
+    "./scripts",
+    "./lib"
+  ]
+}
