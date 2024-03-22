@@ -1,0 +1,8 @@
+node_modules
+.turbo
+.vscode
+.pnpm-*
+/temp
+.idea
+.eslintcache
+tsconfig.tsbuildinfo
