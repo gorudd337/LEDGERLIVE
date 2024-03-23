@@ -1,0 +1,57 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`encode/decode 1`] = `
+Object {
+  "accounts": Array [
+    Object {
+      "balance": "349005855825536773784",
+      "currencyId": "ethereum_classic",
+      "derivationMode": "",
+      "freshAddress": "0xF882CE5EF3E667AAFF592AE27793E0CF40356D1E",
+      "id": "mock:1:ethereum_classic:export_0:",
+      "index": 1,
+      "name": "uuwygRL0AmMrs9riAlv1",
+      "seedIdentifier": "mock",
+    },
+    Object {
+      "balance": "45503129837786898140",
+      "currencyId": "ethereum_classic",
+      "derivationMode": "",
+      "freshAddress": "0x22FF1149E5C7585F99647784C2D2A8D6415979F3",
+      "id": "mock:1:ethereum_classic:export_1:",
+      "index": 1,
+      "name": "4GEb2iRQXlUt6X1jviKzSz4umwWj",
+      "seedIdentifier": "mock",
+    },
+    Object {
+      "balance": "3979459404",
+      "currencyId": "litecoin",
+      "derivationMode": "",
+      "freshAddress": "1PjCKWNNmK8LmfKcxuvkdx5xYXjRfNc",
+      "id": "mock:1:litecoin:export_2:",
+      "index": 1,
+      "name": "oCpyszQigtzPbPqv6XS7Babf",
+      "seedIdentifier": "mock",
+    },
+  ],
+  "meta": Object {
+    "exporterName": "test",
+    "exporterVersion": "0.0.0",
+  },
+  "settings": Object {
+    "blacklistedTokenIds": Array [
+      "tokenid1",
+      "tokenid2",
+    ],
+    "counterValue": "USD",
+    "currenciesSettings": Object {
+      "bitcoin": Object {
+        "confirmationsNb": 3,
+      },
+    },
+    "pairExchanges": Object {
+      "BTC_USD": "KRAKEN",
+    },
+  },
+}
+`;
