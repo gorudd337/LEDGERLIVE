@@ -1,0 +1,20 @@
+{
+  "extends": "../../../tsconfig.base",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "downlevelIteration": true,
+    "isolatedModules": false,
+    "module": "commonjs",
+    "jsx": "react",
+    "lib": ["es2020", "dom"],
+    "rootDir": ".",
+    "outDir": "../lib/"
+  },
+  "references": [
+    // this is how we declare a dependency from
+    { "path": "../" } // this project to the one at the root dir`
+  ]
+}
