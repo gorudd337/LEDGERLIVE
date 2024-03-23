@@ -1,0 +1,66 @@
+name: "Setup Ledger Live Desktop Tests"
+description: "Composite job to setup the CI for Ledger Live Desktop tests"
+inputs:
+  skip_ruby:
+    description: "skip the step to setup ruby"
+    required: false
+  skip_builds:
+    description: "skip the steps to build the desktop and dummy-live-app"
+    required: false
+  install_node_gyp:
+    description: "install node-gyp"
+    required: false
+  install_playwright:
+    description: "install playwright"
+    required: false
+  turborepo-server-port:
+    description: "turborepo server port"
+    required: false
+  turbo-server-token:
+    description: "custom token for local s3 server"
+    required: false
+    default: "yolo"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ruby/setup-ruby@v1
+      if: ${{ !inputs.skip_ruby }}
+      with:
+        ruby-version: 3.2.2
+    - name: Install node-gyp globally
+      if: ${{ inputs.install_node_gyp }}
+      run: |
+        pnpm add -g node-gyp
+      shell: bash
+    - name: Install dependencies
+      env:
+        LANG: en_US.UTF-8
+      run: pnpm i --filter="ledger-live-desktop..." --filter="ledger-live" --filter="dummy-*-app..." --unsafe-perm
+      shell: bash
+    - name: Install playwright dependencies
+      if: ${{ inputs.install_playwright }}
+      run: pnpm desktop test:playwright:setup
+      shell: bash
+    - name: Build dependencies
+      if: inputs.turborepo-server-port != ''
+      run: |
+        pnpm build:lld:deps --api="http://127.0.0.1:${{ inputs.turborepo-server-port }}" --token="${{ inputs.turbo-server-token }}" --team="foo"
+      shell: bash
+    - name: Build dependencies
+      if: inputs.turborepo-server-port == ''
+      run: |
+        pnpm build:lld:deps
+      shell: bash
+    - name: Build LLD app for testing
+      env:
+        GOMEMLIMIT: 5GiB
+      if: ${{ !inputs.skip_builds }}
+      run: |
+        pnpm desktop build:testing
+      shell: bash
+    - name: Build Dummy Live SDK and Dummy Wallet API apps for testing
+      if: ${{ !inputs.skip_builds }}
+      run: |
+        pnpm build:dummy-apps
+      shell: bash
