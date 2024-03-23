@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base",
+  "compilerOptions": {
+    "allowJs": false,
+    "composite": true,
+    "module": "es2020",
+    "jsx": "react",
+    "lib": ["es6", "dom"],
+    "target": "esnext",
+    "baseUrl": ".",
+    "rootDir": ".",
+    "paths": {
+      "~/*": ["src/*"],
+      "tests/*": ["./tests/*"]
+    },
+    "outDir": "dist",
+    "typeRoots": ["index-types.d.ts"]
+  },
+  "exclude": ["**/node_modules/*"],
+  "include": [
+    "src",
+    "static/**/*.json",
+    "src/renderer/styles/palettes/*.json",
+    "src/renderer/animations/*/*.json",
+    "src/renderer/screens/settings/sections/General/regions.json",
+    "package.json",
+    "release-notes.json",
+    "tests",
+    "index-types.d.ts"
+  ]
+}
