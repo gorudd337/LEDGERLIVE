@@ -1,0 +1,154 @@
+name: Bot 'android algorand on Phosphore'
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/LIVE-1162-bot-speculos-ios
+
+jobs:
+  is-org-member:
+    name: "Check Org Member"
+    uses: ledgerhq/ledger-live/.github/workflows/is-org-member.yml@develop
+    with:
+      username: ${{ github.actor }}
+      organisation: ledgerhq
+    secrets:
+      token: ${{ secrets.COMMON_READ_ORG }}
+
+  start-runner:
+    needs: [is-org-member]
+    if: ${{ needs.is-org-member.outputs.is-org-member }}
+    name: "start ec2 instance"
+    uses: ledgerhq/ledger-live/.github/workflows/start-linux-runner.yml@develop
+    with:
+      instance-type: c5.4xlarge
+    secrets:
+      CI_BOT_TOKEN: ${{ secrets.CI_BOT_TOKEN }}
+
+  stop-runner:
+    name: "stop ec2 instance"
+    if: ${{ always() && needs.start-runner.result == 'success' }}
+    needs: [start-runner, run-bot]
+    uses: ledgerhq/ledger-live/.github/workflows/stop-linux-runner.yml@develop
+    with:
+      label: ${{ needs.start-runner.outputs.label }}
+      ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
+    secrets:
+      CI_BOT_TOKEN: ${{ secrets.CI_BOT_TOKEN }}
+
+  run-bot:
+    runs-on: ${{ needs.start-runner.outputs.label }}
+    needs: [is-org-member, start-runner]
+    env:
+      EMULATOR_COMMAND: "-avd emu -noaudio -gpu swiftshader_indirect -camera-back none -no-snapshot -no-window -no-boot-anim -nojni -memory 2048 -timezone 'Europe/London' -cores 2"
+      EMULATOR_EXECUTABLE: qemu-system-x86_64-headless
+    steps:
+      - name: prepare runner
+        run: |
+          sudo growpart /dev/nvme0n1 1
+          sudo resize2fs /dev/nvme0n1p1
+
+      - name: Set workflow variables
+        id: workflow-variables
+        run: |
+          echo "::set-output name=metro-cache::$HOME/.metro"
+          echo "::set-output name=tempdir::$TMPDIR"
+
+      - uses: actions/checkout@v3
+
+      - name: env
+        working-directory: tests/bot-rn
+        run: |
+          echo GITHUB_RUN_ID=${{ github.run_id }} >> .ci.env
+          echo GITHUB_WORKFLOW=${{ github.workflow }} >> .ci.env
+
+      - name: Retrieving coin apps
+        uses: actions/checkout@v3
+        with:
+          repository: LedgerHQ/coin-apps
+          token: ${{ secrets.GH_PAT }}
+          path: coin-apps
+      - uses: pnpm/action-setup@v2.0.1
+        with:
+          version: latest
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: install and build cli
+        run: |
+          pnpm i --filter="live-cli..." --filter="ledger-live" --no-frozen-lockfile --unsafe-perm
+          pnpm build:cli
+
+      - name: pull docker image
+        run: docker pull ghcr.io/ledgerhq/speculos
+      - name: Bot Speculos
+        env:
+          SEED: ${{ secrets.SEED6 }}
+          BOT_REPORT_FOLDER: botreport
+          VERBOSE_FILE: botreport/logs_speculos.txt
+        run: |
+          mkdir -p botreport
+          nohup COINAPPS=$PWD/coin-apps pnpm run:cli botSpeculosProxy -p 4337 &
+      - name: Bot Logger
+        env:
+          VERBOSE_FILE: botreport/logs.txt
+        run: |
+          mkdir -p botreport
+          nohup pnpm run:cli botLogProxy -p 8331 &
+
+      - name: install tests/bot-rn
+        run: |
+          pnpm i --filter="@tests/bot-rn..." --filter="ledger-live" --no-frozen-lockfile --unsafe-perm
+      - name: Pre-fetch Javascript bundle
+        # Prebuild the bundle so that's fast when the app starts.
+        run: |
+          nohup pnpm dev:tests/bot-rn &
+          printf 'Waiting for packager to come online'
+          until curl --output /dev/null --silent --head --fail http://localhost:8081/status; do
+            printf '.'
+            sleep 2
+          done
+          echo "Packager is online! Preparing javascript bundle..."
+          curl --output /dev/null --silent --head --fail "http://localhost:8081/index.bundle?platform=android&dev=true&minify=false&inlineSourceMap=true"
+          echo "...javascript bundle ready."
+
+
+      - name: run tests
+        uses: reactivecircus/android-emulator-runner@v2
+        timeout-minutes: 40
+        with:
+          api-level: 29
+          avd-name: emu
+          script: |
+            pnpm tests:bot-rn detox build e2e --configuration android
+            $ANDROID_HOME/platform-tools/adb devices
+            $ANDROID_HOME/platform-tools/adb shell settings put global window_animation_scale 0.0
+            $ANDROID_HOME/platform-tools/adb shell settings put global transition_animation_scale 0.0
+            $ANDROID_HOME/platform-tools/adb shell settings put global animator_duration_scale 0.0
+            pnpm tests:bot-rn test e2e --configuration android --cleanup --debug-synchronization 500 --detectOpenHandles --runInBand
+
+      - name: build bot mobile
+        run: pnpm tests:bot-rn detox build e2e --configuration android
+
+      - name: submit bot report
+        uses: ledgerhq/ledger-live/tools/actions/submit-bot-report@develop
+        with:
+          path: botreport/
+          githubSha: ${{github.sha}}
+          githubToken: ${{github.token}}
+          slackApiToken: ${{secrets.SLACK_API_TOKEN}}
+          slackChannel: live-bot-mobile
+      - name: upload logs to github artifacts
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: botreport
+          path: botreport/
+      - name: Test coverage
+        if: always()
+        run: npx codecov -F bot
+        env:
+          CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}
