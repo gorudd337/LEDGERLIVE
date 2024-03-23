@@ -1,0 +1,76 @@
+name: "[Release] Prepare for releasing"
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: the branch to release from
+        default: release
+        required: true
+
+jobs:
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: "--max-old-space-size=7168"
+    steps:
+      - name: generate token
+        id: generate-token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.GH_BOT_APP_ID }}
+          private_key: ${{ secrets.GH_BOT_PRIVATE_KEY }}
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: set git user
+        run: |
+          git config user.email "105061298+live-github-bot[bot]@users.noreply.github.com"
+          git config user.name "live-github-bot[bot]"
+
+      - name: Setup the toolchain
+        uses: ./tools/actions/composites/setup-toolchain
+
+      - name: install dependencies
+        run: pnpm i -F "ledger-live"
+
+      - name: exit prerelease mode
+        run: pnpm changeset pre exit
+
+      - name: versioning
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm changeset version
+
+      - name: commit
+        run: |
+          git add .
+          git commit -m "chore(release): :rocket: prepare release [skip ci]"
+
+      - name: push changes
+        run: |
+          git push origin ${{ inputs.ref }}
+          git fetch origin
+
+      - name: fetch develop and main
+        run: |
+          git fetch origin develop main
+
+      - name: merge into main
+        run: |
+          git checkout main
+          git merge ${{ inputs.ref }} --no-ff
+          git push origin main
+
+      - name: create PR to develop
+        env:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          git checkout ${{ github.event.inputs.ref }}
+          git checkout -b support/release-merge-conflicts
+          git push origin support/release-merge-conflicts
+          gh pr create --title ":rotating_light: Release merge conflicts" -F .github/templates/release-conflicts.md --base develop --head support/release-merge-conflicts
