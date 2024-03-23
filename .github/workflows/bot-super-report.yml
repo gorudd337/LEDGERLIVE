@@ -1,0 +1,33 @@
+name: "Bot Super Report"
+on:
+  schedule:
+    - cron: "0 14 * * 5"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup the toolchain
+        uses: ./tools/actions/composites/setup-toolchain
+        with:
+          accountId: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          roleName: ${{ secrets.AWS_CACHE_ROLE_NAME }}
+          region: ${{ secrets.AWS_CACHE_REGION }}
+          turbo-server-token: ${{ secrets.TURBOREPO_SERVER_TOKEN }}
+      - name: Install dependencies
+        run: pnpm i --filter='!./apps/**'
+
+      - name: generate super report
+        uses: ./tools/actions/generate-bot-super-report
+        with:
+          branch: develop
+          environment: production
+          days: 7
+          githubToken: ${{github.token}}
+          slackApiToken: ${{secrets.SLACK_API_TOKEN}}
+          slackChannel: ledger-live
