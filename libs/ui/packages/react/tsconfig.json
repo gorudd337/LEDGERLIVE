@@ -1,0 +1,21 @@
+{
+  "extends": "../../../../tsconfig.base",
+  "compilerOptions": {
+    "composite": true,
+    "jsx": "react",
+    "lib": ["es2019", "dom"],
+    "baseUrl": ".",
+    "rootDir": "./src",
+    "outDir": "./lib",
+    "preserveSymlinks": true
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js",
+    "./scripts",
+    "./lib"
+  ]
+}
