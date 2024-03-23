@@ -1,0 +1,127 @@
+name: "Setup Toolchain"
+description: "Setup the toolchain for an action"
+inputs:
+  upgrade_npm:
+    description: "should update npm (windows support)"
+    required: false
+  install_dotnet:
+    description: "dotnet setup for Windows"
+    required: false
+  no_pnpm_cache:
+    description: should install without pnpm cache
+    required: false
+  aws-access-key:
+    description: "aws access key"
+    required: false
+  aws-secret-key:
+    description: "aws secret key"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    # ⚠️ We have issues with the runners and proto,
+    # so for the moment we're not using it at all in the CI.
+    - uses: actions/setup-dotnet@v3.2.0
+      if: inputs.install_dotnet != ''
+      with:
+        dotnet-version: 2.1.816
+
+    - uses: pnpm/action-setup@v2
+      with:
+        version: 8.12.1
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+    - name: Cache pnpm store
+      uses: tespkg/actions-cache@v1
+      if: inputs.no_pnpm_cache == '' && inputs.aws-access-key != '' && inputs.aws-secret-key != ''
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+        accessKey: ${{ inputs.aws-access-key }}
+        secretKey: ${{ inputs.aws-secret-key }}
+        bucket: ll-gha-s3-cache
+        region: eu-west-1
+        use-fallback: false
+
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 18
+        registry-url: "https://registry.npmjs.org"
+
+    - name: upgrade npm
+      if: inputs.upgrade_npm == 'true'
+      run: |
+        npm i -g npm
+      shell: bash
+
+    # Using the proto toolchain manager:
+    # - name: Setup proto
+    #   if: ${{ runner.os != 'Windows' }}
+    #   shell: bash
+    #   run: |
+    #     curl -fsSL https://moonrepo.dev/install/proto.sh | bash
+    #     echo "Adding $HOME/.proto/bin to GITHUB_PATH"
+    #     echo "$HOME/.proto/bin" >> $GITHUB_PATH
+    #     if [[ -z "${HOME}" ]]; then
+    #       # EC2 runners don't have a HOME variable
+    #       echo "Adding /root/.proto/bin to PATH"
+    #       echo "/root/.proto/bin" >> $GITHUB_PATH
+    #     fi
+    # # - name: Setup proto (Windows)
+    # #   if: ${{ runner.os == 'Windows' }}
+    # #   shell: powershell
+    # #   run: |
+    # #     irm https://moonrepo.dev/install/proto.ps1 | iex
+    # #     Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+    # #     echo "Adding ${Home}\.proto\bin to GITHUB_PATH"
+    # #     echo "${Home}\.proto\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    # # - name: Update proto (bash)
+    # #   if: ${{ runner.os != 'Windows' }}
+    # #   shell: bash
+    # #   run: |
+    # #     proto upgrade
+    # - name: Use proto (bash)
+    #   if: ${{ runner.os != 'Windows' }}
+    #   shell: bash
+    #   run: |
+    #     proto --version
+    #     proto use
+    #     which node
+    #     proto run node -- --version
+    #     node --version
+    #     which pnpm
+    #     proto run pnpm -- --version
+    #     pnpm --version
+    #     which npm
+    #     proto run npm -- --version
+    #     npm --version
+    # # - name: Use proto (powershell)
+    # #   if: ${{ runner.os == 'Windows' }}
+    # #   shell: powershell
+    # #   run: |
+    # #     proto use
+    # #     echo ${env:PATH}
+    # #     Get-Command node
+    # #     node --version
+    # #     Get-Command pnpm
+    # #     pnpm --version
+    # #     Get-Command npm
+    # #     npm --version
+    # - name: Get pnpm store directory
+    #   if: ${{ runner.os != 'Windows' }}
+    #   id: pnpm-cache
+    #   shell: bash
+    #   run: |
+    #     echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+    # - name: Setup pnpm cache
+    #   if: ${{ runner.os != 'Windows' }}
+    #   uses: actions/cache@v3
+    #   with:
+    #     path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+    #     key: ${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
