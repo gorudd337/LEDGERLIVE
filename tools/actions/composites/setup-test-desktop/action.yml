@@ -1,0 +1,68 @@
+name: "Setup Ledger Live Desktop Tests"
+description: "Composite job to setup the CI for Ledger Live Desktop tests"
+inputs:
+  skip_ruby:
+    description: "skip the step to setup ruby"
+    required: false
+  skip_builds:
+    description: "skip the steps to build the desktop and dummy-live-app"
+    required: false
+  install_node_gyp:
+    description: "install node-gyp"
+    required: false
+  install_playwright:
+    description: "install playwright"
+    required: false
+  aws-access-key:
+    description: "aws access key"
+    required: false
+  aws-secret-key:
+    description: "aws secret key"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ruby/setup-ruby@v1
+      if: ${{ !inputs.skip_ruby }}
+      with:
+        ruby-version: 3.2.2
+    - name: Install node-gyp globally
+      if: ${{ inputs.install_node_gyp }}
+      run: |
+        pnpm add -g node-gyp
+      shell: bash
+    - name: Install dependencies
+      env:
+        LANG: en_US.UTF-8
+      run: pnpm i --filter="ledger-live-desktop..." --filter="ledger-live" --filter="dummy-*-app..." --unsafe-perm
+      shell: bash
+    - name: Install playwright dependencies
+      if: ${{ inputs.install_playwright }}
+      run: pnpm desktop test:playwright:setup
+      shell: bash
+    - name: TurboRepo local caching server
+      if: inputs.aws-access-key != '' && inputs.aws-secret-key != ''
+      id: turborepo-cache-server
+      uses: ./tools/actions/turborepo-s3-cache
+      with:
+        server-token: "yolo"
+        cleanup-cache-folder: "true"
+        aws-access-key: ${{ inputs.aws-access-key }}
+        aws-secret-key: ${{ inputs.aws-secret-key }}
+    - name: Build dependencies
+      run: |
+        pnpm build:lld:deps --api="http://127.0.0.1:${{ steps.turborepo-cache-server.outputs.port }}" --token="yolo" --team="foo"
+      shell: bash
+    - name: Build LLD app for testing
+      env:
+        GOMEMLIMIT: 5GiB
+      if: ${{ !inputs.skip_builds }}
+      run: |
+        pnpm desktop build:testing
+      shell: bash
+    - name: Build Dummy Live SDK and Dummy Wallet API apps for testing
+      if: ${{ !inputs.skip_builds }}
+      run: |
+        pnpm build:dummy-apps
+      shell: bash
