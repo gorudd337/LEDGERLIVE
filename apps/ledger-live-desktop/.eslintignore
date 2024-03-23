@@ -1,0 +1,3 @@
+*.min.js
+src/renderer/families/generated.ts
+!.github
