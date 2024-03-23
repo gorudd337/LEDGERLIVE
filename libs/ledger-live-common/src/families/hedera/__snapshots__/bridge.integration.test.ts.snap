@@ -1,0 +1,81 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`hedera currency bridge scanAccounts hedera seed 1 1`] = `
+Array [
+  Object {
+    "balance": "99670839",
+    "currencyId": "hedera",
+    "derivationMode": "hederaBip44",
+    "freshAddress": "0.0.1040977",
+    "freshAddressPath": "44/3030",
+    "freshAddresses": Array [
+      Object {
+        "address": "0.0.1040977",
+        "derivationPath": "44/3030",
+      },
+    ],
+    "id": "js:2:hedera:0.0.1040977:hederaBip44",
+    "index": 0,
+    "name": "Hedera 1",
+    "nfts": undefined,
+    "operationsCount": 2,
+    "pendingOperations": Array [],
+    "seedIdentifier": "9e92a312233d5fd6b5a723875aeea2cea81a8e48ffc00341cff6dffcfd3ab7f2",
+    "spendableBalance": "99670839",
+    "starred": false,
+    "swapHistory": Array [],
+    "syncHash": undefined,
+    "unitMagnitude": 8,
+    "used": true,
+  },
+]
+`;
+
+exports[`hedera currency bridge scanAccounts hedera seed 1 2`] = `
+Array [
+  Array [
+    Object {
+      "accountId": "js:2:hedera:0.0.1040977:hederaBip44",
+      "blockHash": null,
+      "blockHeight": 5,
+      "contract": undefined,
+      "extra": Object {},
+      "fee": "163081",
+      "hash": "890fe82eaf8f10c9709a84846415e978afc9f44340a4b267cfeb86077ff55d5aad467314fb456f74a98957713c8a0e49",
+      "id": "js:2:hedera:0.0.1040977:hederaBip44-890fe82eaf8f10c9709a84846415e978afc9f44340a4b267cfeb86077ff55d5aad467314fb456f74a98957713c8a0e49-IN",
+      "operator": undefined,
+      "recipients": Array [
+        "0.0.1040977",
+      ],
+      "senders": Array [
+        "0.0.880760",
+      ],
+      "standard": undefined,
+      "tokenId": undefined,
+      "type": "IN",
+      "value": "99870000",
+    },
+    Object {
+      "accountId": "js:2:hedera:0.0.1040977:hederaBip44",
+      "blockHash": null,
+      "blockHeight": 5,
+      "contract": undefined,
+      "extra": Object {},
+      "fee": "199161",
+      "hash": "b01bc7b970fc2b4c4ab689e97bbaf95a1b8cffed1a4d9e6ea782c485ae9bb82de38ccfd3defeb8e65c45f7a5f200a0c0",
+      "id": "js:2:hedera:0.0.1040977:hederaBip44-b01bc7b970fc2b4c4ab689e97bbaf95a1b8cffed1a4d9e6ea782c485ae9bb82de38ccfd3defeb8e65c45f7a5f200a0c0-OUT",
+      "operator": undefined,
+      "recipients": Array [
+        "0.0.98",
+      ],
+      "senders": Array [
+        "0.0.1040977",
+      ],
+      "standard": undefined,
+      "tokenId": undefined,
+      "type": "OUT",
+      "value": "199161",
+    },
+  ],
+]
+`;
